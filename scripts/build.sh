@@ -5,7 +5,7 @@ PUBLIC_DIR="./public"
 mkdir -p "$PUBLIC_DIR"
 PIDS=()
 
-STRUCTURIZR_BIN="$(pwd)/bin/structurizr/structurizr.sh"
+STRUCTURIZR_BIN="$(pwd)/bin/structurizr.sh"
 
 echo "--- Phase 0: Fetch Live Production Manifest ---"
 LIVE_MANIFEST="/tmp/live_manifest.json"
