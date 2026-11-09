@@ -44,9 +44,9 @@ for d in c4-catalogs/*/; do
                 --network none \
                 -u $(id -u):$(id -g) \
                 -v "$(pwd)/$d":/usr/local/structurizr/src \
-                -v "$(pwd)/$PUBLIC_DIR/$WORKSPACE_NAME":/usr/local/structurizr/out \
+                -v "$(pwd)/$PUBLIC_DIR/$WORKSPACE_NAME":/out \
                 structurizr/cli:latest \
-                export -workspace src/workspace.dsl -format static -output out
+                export -workspace src/workspace.dsl -format static -output /out
         ) &
         
         PIDS+=($!)
