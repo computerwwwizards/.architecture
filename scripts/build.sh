@@ -39,7 +39,7 @@ for d in c4-catalogs/*/; do
         
         # Run natively in background subshell
         (
-            "$STRUCTURIZR_BIN" export \
+            sh "$STRUCTURIZR_BIN" export \
                 -workspace "$d/workspace.dsl" \
                 -format static \
                 -output "$PUBLIC_DIR/$WORKSPACE_NAME"
