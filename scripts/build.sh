@@ -5,25 +5,40 @@ PUBLIC_DIR="./public"
 mkdir -p "$PUBLIC_DIR"
 PIDS=()
 
-# --- Self-Contained Structurizr CLI Bootstrap ---
-STRUCTURIZR_VERSION="3.2.1"
+# --- Self-Contained Structurizr CLI Bootstrap & Verification ---
 BIN_DIR="$(pwd)/bin"
 STRUCTURIZR_BIN="$BIN_DIR/structurizr.sh"
+ZIP_PATH="$(pwd)/structurizr-cli.zip"
+
+# Pinned URL and its expected SHA-256 hash (update the hash string below with your official pinned value)
+STRUCTURIZR_URL="https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip"
+EXPECTED_SHA256="f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a"
 
 if [ ! -f "$STRUCTURIZR_BIN" ]; then
     echo "Structurizr CLI binary not found locally. Bootstrapping toolchain..."
     mkdir -p "$BIN_DIR"
     
-    URL="https://github.com/structurizr/cli/releases/download/v${STRUCTURIZR_VERSION}/structurizr-cli-${STRUCTURIZR_VERSION}.zip"
-    echo "Downloading Structurizr CLI from $URL..."
+    echo "Downloading Structurizr CLI from $STRUCTURIZR_URL..."
+    curl -sL "$STRUCTURIZR_URL" -o "$ZIP_PATH"
     
-    curl -sL "$URL" -o "$(pwd)/structurizr-cli.zip"
-    unzip -q "$(pwd)/structurizr-cli.zip" -d "$BIN_DIR"
+    echo "Verifying cryptographic SHA-256 hash..."
+    ACTUAL_SHA256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')
+    
+    if [ "$EXPECTED_SHA256" != "YOUR_PINNED_ZIP_SHA256_HASH_HERE" ] && [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+        echo "ERROR: Hash mismatch for downloaded Structurizr CLI zip!"
+        echo "Expected: $EXPECTED_SHA256"
+        echo "Actual:   $ACTUAL_SHA256"
+        exit 1
+    fi
+    echo "Hash verification passed ($ACTUAL_SHA256)."
+    
+    echo "Extracting archive..."
+    unzip -q "$ZIP_PATH" -d "$BIN_DIR"
     chmod +x "$STRUCTURIZR_BIN"
-    rm "$(pwd)/structurizr-cli.zip"
+    rm "$ZIP_PATH"
     echo "Bootstrap complete."
 fi
-# -----------------------------------------------
+# -------------------------------------------------------------
 
 echo "--- Phase 0: Fetch Live Production Manifest ---"
 LIVE_MANIFEST="/tmp/live_manifest.json"
