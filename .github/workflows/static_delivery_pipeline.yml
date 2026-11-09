@@ -3,6 +3,10 @@ name: Federated Architecture Catalog
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'c4-catalogs/**'
+      - 'scripts/**'
+      - '.github/workflows/federated_catalog.yml'
   workflow_dispatch:
 
 jobs:
