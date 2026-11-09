@@ -1,0 +1,60 @@
+name: Gated Static Delivery Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  STRUCTURIZR_VERSION: "3.2.1"
+  STRUCTURIZR_SHA256: "91395b066cf640c6a51d9663dd4549f481cff7f2b9fa00bc32cb390cd3c20cd1" 
+
+jobs:
+  build_job:
+    name: Build Job Runner
+    runs-on: ubuntu-latest
+    # Job-level permissions: Only the minimum required to read the repository
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v7
+
+      - name: Fetch, Verify, and Install Structurizr CLI
+        run: |
+          curl -L -o /tmp/structurizr_cli.zip "https://github.com/structurizr/cli/releases/download/v${STRUCTURIZR_VERSION}/structurizr-cli-${STRUCTURIZR_VERSION}.zip"
+          
+          # Supply chain verification
+          echo "${STRUCTURIZR_SHA256}  /tmp/structurizr_cli.zip" | sha256sum -c -
+          
+          mkdir -p /tmp/structurizr_cli
+          unzip /tmp/structurizr_cli.zip -d /tmp/structurizr_cli
+          chmod +x /tmp/structurizr_cli/structurizr.sh
+
+
+      - name: Compile Static Site Artifacts (Network Isolated)
+        run: |
+          # unshare -r -n maps the current user to root in a new user namespace 
+          # and creates a new, empty network namespace (disabling internet access).
+          sudo unshare -n sudo -E -u $USER /tmp/structurizr_cli/structurizr.sh export -workspace main_workspace.dsl -format StaticSite -output ./build
+        
+      - name: Upload to Pipeline Artifact Store
+        uses: actions/upload-pages-artifact@v7
+        with:
+          path: ./build
+
+  deploy_job:
+    name: Deploy Job Runner
+    needs: build_job
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Publish Static Bundle to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
