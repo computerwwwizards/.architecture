@@ -5,7 +5,25 @@ PUBLIC_DIR="./public"
 mkdir -p "$PUBLIC_DIR"
 PIDS=()
 
-STRUCTURIZR_BIN="$(pwd)/bin/structurizr.sh"
+# --- Self-Contained Structurizr CLI Bootstrap ---
+STRUCTURIZR_VERSION="3.2.1"
+BIN_DIR="$(pwd)/bin"
+STRUCTURIZR_BIN="$BIN_DIR/structurizr.sh"
+
+if [ ! -f "$STRUCTURIZR_BIN" ]; then
+    echo "Structurizr CLI binary not found locally. Bootstrapping toolchain..."
+    mkdir -p "$BIN_DIR"
+    
+    URL="https://github.com/structurizr/cli/releases/download/v${STRUCTURIZR_VERSION}/structurizr-cli-${STRUCTURIZR_VERSION}.zip"
+    echo "Downloading Structurizr CLI from $URL..."
+    
+    curl -sL "$URL" -o "$(pwd)/structurizr-cli.zip"
+    unzip -q "$(pwd)/structurizr-cli.zip" -d "$BIN_DIR"
+    chmod +x "$STRUCTURIZR_BIN"
+    rm "$(pwd)/structurizr-cli.zip"
+    echo "Bootstrap complete."
+fi
+# -----------------------------------------------
 
 echo "--- Phase 0: Fetch Live Production Manifest ---"
 LIVE_MANIFEST="/tmp/live_manifest.json"
@@ -37,7 +55,7 @@ for d in c4-catalogs/*/; do
         rm -rf "$PUBLIC_DIR/$WORKSPACE_NAME"
         mkdir -p "$PUBLIC_DIR/$WORKSPACE_NAME"
         
-        # Run natively in background subshell
+        # Run natively in background subshell using sh invocation
         (
             sh "$STRUCTURIZR_BIN" export \
                 -workspace "$d/workspace.dsl" \
