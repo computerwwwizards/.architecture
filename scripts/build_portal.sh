@@ -4,7 +4,8 @@ set -e
 mkdir -p ./public
 PIDS=()
 
-for d in catalogs/*/; do
+# Updated to target the c4-catalogs directory
+for d in c4-catalogs/*/; do
     if [ -d "$d" ]; then
         WORKSPACE_NAME=$(basename "$d")
         
