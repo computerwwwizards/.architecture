@@ -34,6 +34,7 @@ jobs:
           mkdir -p ./bin
           unzip -q structurizr-cli.zip -d ./bin
           chmod +x ./bin/*.sh
+          ls -al /home/runner/work/.architecture/.architecture/bin
       - name: Checkout Source Code
         uses: actions/checkout@v7
 
