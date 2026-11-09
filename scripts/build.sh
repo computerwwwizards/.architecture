@@ -5,27 +5,40 @@ PUBLIC_DIR="./public"
 mkdir -p "$PUBLIC_DIR"
 PIDS=()
 
+echo "--- Phase 0: Fetch Live Production Manifest ---"
+LIVE_MANIFEST="/tmp/live_manifest.json"
+if curl -s -f -L "${PAGES_BASE_URL}/manifest.json" -o "$LIVE_MANIFEST"; then
+    echo "Fetched live manifest from ${PAGES_BASE_URL}/manifest.json"
+else
+    echo "No live manifest found at ${PAGES_BASE_URL}/manifest.json (first deploy or unreachable). Building all."
+    echo '{"workspaces":{}}' > "$LIVE_MANIFEST"
+fi
+
+# Associative array to hold current hashes in memory (no .dsl_hash files needed)
+declare -A CURRENT_HASHES
+
 echo "--- Phase 1: Concurrent Workspace Builds ---"
-# Iterate through all workspaces in the c4-catalogs directory
 for d in c4-catalogs/*/; do
     if [ -d "$d" ]; then
         WORKSPACE_NAME=$(basename "$d")
         
-        # Calculate current cryptographic hash of the workspace DSLs
+        # Calculate current cryptographic hash of the source DSLs
         CURRENT_HASH=$(sha256sum "$d"*.dsl | sha256sum | awk '{print $1}')
+        CURRENT_HASHES["$WORKSPACE_NAME"]="$CURRENT_HASH"
         
-        # Check if this exact workspace version is already in the cache
-        PREV_HASH_FILE="$PUBLIC_DIR/$WORKSPACE_NAME/.dsl_hash"
-        if [ -f "$PREV_HASH_FILE" ] && [ "$(cat "$PREV_HASH_FILE")" = "$CURRENT_HASH" ]; then
-            echo "[$WORKSPACE_NAME] No changes detected. Skipping build."
+        # Read what is deployed in live production
+        PROD_HASH=$(jq -r ".workspaces[\"$WORKSPACE_NAME\"] // empty" "$LIVE_MANIFEST" 2>/dev/null || echo "")
+        
+        # Skip ONLY if it matches live production AND the cached HTML wasn't evicted
+        if [ "$PROD_HASH" = "$CURRENT_HASH" ] && [ -f "$PUBLIC_DIR/$WORKSPACE_NAME/index.html" ]; then
+            echo "[$WORKSPACE_NAME] Matches live production and exists in cache. Skipping build."
             continue
         fi
         
-        echo "[$WORKSPACE_NAME] Changes detected (or new). Starting concurrent build..."
+        echo "[$WORKSPACE_NAME] Drift detected or cache evicted. Starting concurrent build..."
+        rm -rf "$PUBLIC_DIR/$WORKSPACE_NAME"
         mkdir -p "$PUBLIC_DIR/$WORKSPACE_NAME"
         
-        # Run Docker in a subshell and background it for concurrency
-        # Changed structurizr/cli:3.2.1 to structurizr/cli:latest
         (
             docker run --rm \
                 --network none \
@@ -34,33 +47,31 @@ for d in c4-catalogs/*/; do
                 -v "$(pwd)/$PUBLIC_DIR/$WORKSPACE_NAME":/usr/local/structurizr/out \
                 structurizr/cli:latest \
                 export -workspace src/workspace.dsl -format static -output out
-            
-            # Save the hash only if the build succeeds
-            echo "$CURRENT_HASH" > "$PUBLIC_DIR/$WORKSPACE_NAME/.dsl_hash"
         ) &
         
-        # Store Process ID
         PIDS+=($!)
     fi
 done
 
-# Wait for all background builds to complete (The Barrier)
+# The Barrier: Wait for all concurrent builds to finish
 for pid in "${PIDS[@]}"; do
-    wait $pid || exit 1 # Fail the pipeline if any child process fails
+    wait $pid || exit 1
 done
-
 echo "All concurrent builds completed."
 
 
 echo "--- Phase 2: AOT Portal & Manifest Generation ---"
 cd "$PUBLIC_DIR"
 
-# 1. Generate Manifest
 echo "Generating manifest.json..."
-WORKSPACES=$(find . -mindepth 1 -maxdepth 1 -type d | sed 's|./||' | jq -R -s -c 'split("\n")[:-1]')
-echo "{\"last_updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"workspaces\": $WORKSPACES}" > manifest.json
+jq -n --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  '{last_updated: $date, workspaces: {}}' > manifest.json
 
-# 2. Generate HTML Entrypoint
+for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
+    HASH="${CURRENT_HASHES[$WORKSPACE_NAME]}"
+    jq --arg w "$WORKSPACE_NAME" --arg h "$HASH" '.workspaces[$w] = $h' manifest.json > tmp.json && mv tmp.json manifest.json
+done
+
 echo "Generating index.html..."
 cat <<EOF > index.html
 <!DOCTYPE html>
@@ -75,7 +86,7 @@ cat <<EOF > index.html
         h1 { border-bottom: 2px solid var(--card); padding-bottom: 1rem; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
         .card { background: var(--card); padding: 1.5rem; border-radius: 8px; text-decoration: none; color: var(--text); border: 1px solid #334155; transition: transform 0.2s, border-color: var(--accent); }
-        .card:hover { transform: translateY(-3px); }
+        .card:hover { transform: translateY(-3px); border-color: var(--accent); }
         .card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: var(--accent); text-transform: capitalize; }
     </style>
 </head>
@@ -84,11 +95,9 @@ cat <<EOF > index.html
     <div class="grid">
 EOF
 
-# Inject a card for every workspace found in the directory
-for d in */ ; do
-    DIR_NAME=${d%/}
-    TITLE=$(echo "$DIR_NAME" | tr '_' ' ')
-    echo "        <a href=\"/.architecture/$DIR_NAME/index.html\" class=\"card\">" >> index.html
+for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
+    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
+    echo "        <a href=\"./$WORKSPACE_NAME/index.html\" class=\"card\">" >> index.html
     echo "            <h2>$TITLE</h2>" >> index.html
     echo "            <p>View structural models and dynamic flows.</p>" >> index.html
     echo "        </a>" >> index.html
