@@ -5,16 +5,17 @@ PUBLIC_DIR="./public"
 mkdir -p "$PUBLIC_DIR"
 PIDS=()
 
+STRUCTURIZR_BIN="$(pwd)/bin/structurizr/structurizr.sh"
+
 echo "--- Phase 0: Fetch Live Production Manifest ---"
 LIVE_MANIFEST="/tmp/live_manifest.json"
 if curl -s -f -L "${PAGES_BASE_URL}/manifest.json" -o "$LIVE_MANIFEST"; then
     echo "Fetched live manifest from ${PAGES_BASE_URL}/manifest.json"
 else
-    echo "No live manifest found at ${PAGES_BASE_URL}/manifest.json (first deploy or unreachable). Building all."
+    echo "No live manifest found. Building all catalogs."
     echo '{"workspaces":{}}' > "$LIVE_MANIFEST"
 fi
 
-# Associative array to hold current hashes in memory (no .dsl_hash files needed)
 declare -A CURRENT_HASHES
 
 echo "--- Phase 1: Concurrent Workspace Builds ---"
@@ -22,31 +23,26 @@ for d in c4-catalogs/*/; do
     if [ -d "$d" ]; then
         WORKSPACE_NAME=$(basename "$d")
         
-        # Calculate current cryptographic hash of the source DSLs
         CURRENT_HASH=$(sha256sum "$d"*.dsl | sha256sum | awk '{print $1}')
         CURRENT_HASHES["$WORKSPACE_NAME"]="$CURRENT_HASH"
         
-        # Read what is deployed in live production
         PROD_HASH=$(jq -r ".workspaces[\"$WORKSPACE_NAME\"] // empty" "$LIVE_MANIFEST" 2>/dev/null || echo "")
         
-        # Skip ONLY if it matches live production AND the cached HTML wasn't evicted
         if [ "$PROD_HASH" = "$CURRENT_HASH" ] && [ -f "$PUBLIC_DIR/$WORKSPACE_NAME/index.html" ]; then
             echo "[$WORKSPACE_NAME] Matches live production and exists in cache. Skipping build."
             continue
         fi
         
-        echo "[$WORKSPACE_NAME] Drift detected or cache evicted. Starting concurrent build..."
+        echo "[$WORKSPACE_NAME] Drift detected or cache evicted. Starting native build..."
         rm -rf "$PUBLIC_DIR/$WORKSPACE_NAME"
         mkdir -p "$PUBLIC_DIR/$WORKSPACE_NAME"
         
+        # Run natively in background subshell
         (
-            docker run --rm \
-                --network none \
-                -u $(id -u):$(id -g) \
-                -v "$(pwd)/$d":/usr/local/structurizr/src \
-                -v "$(pwd)/$PUBLIC_DIR/$WORKSPACE_NAME":/out \
-                structurizr/cli:latest \
-                export -workspace src/workspace.dsl -format static -output /out
+            "$STRUCTURIZR_BIN" export \
+                -workspace "$d/workspace.dsl" \
+                -format static \
+                -output "$PUBLIC_DIR/$WORKSPACE_NAME"
         ) &
         
         PIDS+=($!)
@@ -57,7 +53,7 @@ done
 for pid in "${PIDS[@]}"; do
     wait $pid || exit 1
 done
-echo "All concurrent builds completed."
+echo "All native concurrent builds completed."
 
 
 echo "--- Phase 2: AOT Portal & Manifest Generation ---"
