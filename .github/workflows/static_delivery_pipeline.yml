@@ -33,7 +33,7 @@ jobs:
         run: |
           # unshare -r -n maps the current user to root in a new user namespace 
           # and creates a new, empty network namespace (disabling internet access).
-          sudo unshare -n sudo -E -u $USER /tmp/structurizr_cli/structurizr.sh export -workspace main-workspace.dsl -format StaticSite -output ./build
+          sudo unshare -n sudo -E -u $USER /tmp/structurizr_cli/structurizr.sh export -workspace main_workspace.dsl -format static -output ./build
         
       - name: Upload to Pipeline Artifact Store
         uses: actions/upload-pages-artifact@v5
