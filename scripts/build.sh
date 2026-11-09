@@ -88,7 +88,7 @@ EOF
 for d in */ ; do
     DIR_NAME=${d%/}
     TITLE=$(echo "$DIR_NAME" | tr '_' ' ')
-    echo "        <a href=\"/$DIR_NAME/index.html\" class=\"card\">" >> index.html
+    echo "        <a href=\"/.architecture/$DIR_NAME/index.html\" class=\"card\">" >> index.html
     echo "            <h2>$TITLE</h2>" >> index.html
     echo "            <p>View structural models and dynamic flows.</p>" >> index.html
     echo "        </a>" >> index.html
