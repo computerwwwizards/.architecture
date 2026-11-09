@@ -1,62 +1,50 @@
-name: Gated Static Delivery Pipeline
+name: Federated Architecture Catalog
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-
 jobs:
   build_job:
-    name: Build Job Runner
+    name: Build & Aggregate Catalog
     runs-on: ubuntu-latest
-    # Job-level permissions: Only the minimum required to read the repository
+    # Minimum required to read the repository and execute the scripts
     permissions:
       contents: read
     steps:
-      - name: Install Graphviz (Required for Autolayout)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
+      - uses: actions/checkout@v4
 
-      - name: Checkout Source Code
-        uses: actions/checkout@v7
-
-      - name: Fetch, Verify, and Install Structurizr CLI
-        run: |
-          curl -L -o /tmp/structurizr_cli.zip "https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip"
-          
-          # Supply chain verification
-          echo "f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a  /tmp/structurizr_cli.zip" | sha256sum -c -
-          
-          mkdir -p /tmp/structurizr_cli
-          unzip /tmp/structurizr_cli.zip -d /tmp/structurizr_cli
-          chmod +x /tmp/structurizr_cli/structurizr.sh
-
-
-      - name: Compile Static Site Artifacts (Network Isolated)
-        run: |
-          # unshare -r -n maps the current user to root in a new user namespace 
-          # and creates a new, empty network namespace (disabling internet access).
-          sudo unshare -n sudo -E -u $USER /tmp/structurizr_cli/structurizr.sh export -workspace main_workspace.dsl -format static -output ./build
-        
-      - name: Upload to Pipeline Artifact Store
-        uses: actions/upload-pages-artifact@v5
+      - name: Restore Incremental Cache
+        uses: actions/cache@v6
         with:
-          path: ./build
+          path: ./public
+          key: catalog-cache-${{ hashFiles('c4-catalogs/**/*.dsl') }}
+          restore-keys: |
+            catalog-cache-
+
+      - name: Build Catalogs & Generate Portal
+        run: |
+          chmod +x ./scripts/build.sh
+          ./scripts/build.sh
+
+      - name: Upload to Pipeline Artifact Store
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
 
   deploy_job:
-    name: Deploy Job Runner
+    name: Deploy to GitHub Pages
     needs: build_job
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
+    # Strict rights exclusively for exchanging the OIDC token and publishing
     permissions:
       pages: write
       id-token: write
     steps:
-      - name: Publish Static Bundle to GitHub Pages
+      - name: Publish Unified Catalog to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
