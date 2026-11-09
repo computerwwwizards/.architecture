@@ -1,11 +1,14 @@
 container static_web_build "pipeline_architecture" {
     include *
+    autolayout lr
     description "The pipeline architecture showing role-based access control, the Build Runner, Environment Gate, and Deploy Runner."
 }
 
 dynamic static_web_build "push_triggered_flow" {
     title "Dynamic View 1 - Push-Triggered Gated CI/CD (Team Handoff)"
     description "Developer initiates the build via push, but the pipeline pauses until a Tech Lead approves the deployment."
+    
+    autolayout lr
 
     developer -> source_repo "1. Pushes code to trigger the workflow"
     build_job -> source_repo "2. Requests checkout and fetches commit bundle"
@@ -25,6 +28,8 @@ dynamic static_web_build "push_triggered_flow" {
 dynamic static_web_build "manual_dispatch_flow" {
     title "Dynamic View 2 - Manually Triggered Gated CI/CD"
     description "A Developer manually triggers the workflow, requiring a Tech Lead to approve the final deployment phase."
+    
+    autolayout lr
 
     developer -> build_job "1. Manually triggers workflow execution via GitHub UI"
     build_job -> source_repo "2. Requests checkout for the selected branch/tag"
