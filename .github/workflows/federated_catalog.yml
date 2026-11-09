@@ -31,9 +31,9 @@ jobs:
           echo "f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a  structurizr-cli.zip" | sha256sum --check -
           
           # Extract to local tool directory
-          mkdir -p ./bin/structurizr
-          unzip -q structurizr-cli.zip -d ./bin/structurizr
-          chmod +x ./bin/structurizr/*.sh
+          mkdir -p ./bin
+          unzip -q structurizr-cli.zip -d ./bin
+          chmod +x ./bin/*.sh
       - name: Checkout Source Code
         uses: actions/checkout@v7
 
