@@ -25,13 +25,14 @@ for d in c4-catalogs/*/; do
         mkdir -p "$PUBLIC_DIR/$WORKSPACE_NAME"
         
         # Run Docker in a subshell and background it for concurrency
+        # Changed structurizr/cli:3.2.1 to structurizr/cli:latest
         (
             docker run --rm \
                 --network none \
                 -u $(id -u):$(id -g) \
                 -v "$(pwd)/$d":/usr/local/structurizr/src \
                 -v "$(pwd)/$PUBLIC_DIR/$WORKSPACE_NAME":/usr/local/structurizr/out \
-                structurizr/cli:3.2.1 \
+                structurizr/cli:latest \
                 export -workspace src/workspace.dsl -format static -output out
             
             # Save the hash only if the build succeeds
