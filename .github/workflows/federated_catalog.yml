@@ -36,7 +36,7 @@ jobs:
           ./scripts/build.sh
 
       - name: Upload to Pipeline Artifact Store
-        uses: actions/upload-pages-artifact@v7
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./public
 
