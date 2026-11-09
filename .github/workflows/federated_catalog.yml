@@ -13,13 +13,16 @@ jobs:
   build_job:
     name: Build & Aggregate Catalog
     runs-on: ubuntu-latest
-    # Minimum required to read the repository and execute the scripts
     permissions:
       contents: read
+    env:
+      # Resolves to https://<owner>.github.io/<repo>
+      PAGES_BASE_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v7
 
-      - name: Restore Incremental Cache
+      - name: Restore Cached Workspace Builds
         uses: actions/cache@v6
         with:
           path: ./public
@@ -33,7 +36,7 @@ jobs:
           ./scripts/build.sh
 
       - name: Upload to Pipeline Artifact Store
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v7
         with:
           path: ./public
 
@@ -44,11 +47,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # Strict rights exclusively for exchanging the OIDC token and publishing
     permissions:
       pages: write
       id-token: write
     steps:
       - name: Publish Unified Catalog to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
