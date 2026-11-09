@@ -72,7 +72,7 @@ for d in c4-catalogs/*/; do
         
         # Run natively in background subshell using sh invocation
         (
-            sh "$STRUCTURIZR_BIN" export \
+            bash "$STRUCTURIZR_BIN" export \
                 -workspace "$d/workspace.dsl" \
                 -format static \
                 -output "$PUBLIC_DIR/$WORKSPACE_NAME"
