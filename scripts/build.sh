@@ -188,7 +188,6 @@ for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
     cat <<EOF >> index.html
             <div class="card" data-title="${TITLE_LOWER}">
                 <h2>$TITLE</h2>
-                <p>Structural models & flows</p>
                 <div class="actions">
                     <button class="btn btn-primary" onclick="openInTab('$WORKSPACE_NAME', '$TITLE')">Open Tab</button>
                     <a href="./$WORKSPACE_NAME/index.html" target="_blank" class="btn btn-secondary">Direct Link ↗</a>
