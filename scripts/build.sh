@@ -11,7 +11,7 @@ STRUCTURIZR_BIN="$BIN_DIR/structurizr.sh"
 ZIP_PATH="$(pwd)/structurizr-cli.zip"
 
 # Pinned URL and its expected SHA-256 hash (update the hash string below with your official pinned value)
-STRUCTURIZR_URL="[https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip](https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip)"
+STRUCTURIZR_URL="https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip"
 EXPECTED_SHA256="f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a"
 
 if [ ! -f "$STRUCTURIZR_BIN" ]; then
