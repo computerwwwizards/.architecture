@@ -110,7 +110,7 @@ cat <<EOF > index.html
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Architecture Workspace</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
+        :root { --bg: #191919; --card: #151515; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
         * { box-sizing: border-box; }
         
         /* 100vh Layout */
@@ -149,7 +149,7 @@ cat <<EOF > index.html
         .tabs-toolbar { display: flex; background: #0f172a; border-bottom: 1px solid #334155; overflow-x: auto; scrollbar-width: none; }
         .tabs-toolbar::-webkit-scrollbar { display: none; }
         
-        .tab { padding: 0.75rem 1.25rem; background: #1e293b; color: #94a3b8; border: none; border-right: 1px solid #334155; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; white-space: nowrap; font-size: 0.9rem; }
+        .tab { padding: 0.75rem 1.25rem; background: #191919; color: #94a3b8; border: none; border-right: 1px solid #334155; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; white-space: nowrap; font-size: 0.9rem; }
         .tab.active { background: var(--bg); color: var(--accent); border-bottom: 2px solid var(--accent); }
         .tab:hover:not(.active) { background: #2a3a52; }
         
