@@ -24,7 +24,6 @@ if [ ! -f "$STRUCTURIZR_BIN" ]; then
     echo "Verifying cryptographic SHA-256 hash..."
     ACTUAL_SHA256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')
     
-    # Fixed the condition to properly compare actual against expected
     if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
         echo "ERROR: Hash mismatch for downloaded Structurizr CLI zip!"
         echo "Expected: $EXPECTED_SHA256"
@@ -90,7 +89,7 @@ done
 echo "All native concurrent builds completed."
 
 
-echo "--- Phase 2: AOT Portal & Manifest Generation ---"
+echo "--- Phase 2: IDE Portal & Manifest Generation ---"
 cd "$PUBLIC_DIR"
 
 echo "Generating manifest.json..."
@@ -109,32 +108,200 @@ cat <<EOF > index.html
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architecture Catalog Portal</title>
+    <title>Architecture Workspace</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; margin: 0; }
-        h1 { border-bottom: 2px solid var(--card); padding-bottom: 1rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
-        .card { background: var(--card); padding: 1.5rem; border-radius: 8px; text-decoration: none; color: var(--text); border: 1px solid #334155; transition: transform 0.2s, border-color: var(--accent); }
-        .card:hover { transform: translateY(-3px); border-color: var(--accent); }
-        .card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: var(--accent); text-transform: capitalize; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
+        * { box-sizing: border-box; }
+        
+        /* 100vh Layout */
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; flex-direction: row; }
+        
+        /* Sidebar Layout */
+        #sidebar { width: 350px; display: flex; flex-direction: column; border-right: 1px solid var(--card); background: #0b1121; flex-shrink: 0; }
+        #sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--card); }
+        #sidebar-header h1 { margin: 0 0 1rem 0; font-size: 1.25rem; }
+        .search-bar { width: 100%; padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid #334155; background: var(--card); color: var(--text); font-size: 0.95rem; }
+        .search-bar:focus { outline: none; border-color: var(--accent); }
+        
+        #catalog { flex-grow: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Card Styles */
+        .card { background: var(--card); padding: 1.25rem; border-radius: 8px; border: 1px solid #334155; display: flex; flex-direction: column; transition: border-color 0.2s; }
+        .card:hover { border-color: var(--accent); }
+        .card h2 { margin: 0 0 0.5rem 0; font-size: 1.1rem; color: var(--accent); text-transform: capitalize; }
+        .card p { margin: 0 0 1rem 0; font-size: 0.85rem; color: #94a3b8; }
+        
+        .actions { display: flex; gap: 0.5rem; }
+        .btn { flex: 1; padding: 0.4rem; text-align: center; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; }
+        .btn-primary { background: var(--accent); color: var(--bg); }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-secondary { background: #334155; color: var(--text); }
+        .btn-secondary:hover { background: #475569; }
+        
+        /* Main Workspace Layout */
+        #main-workspace { flex-grow: 1; display: flex; flex-direction: column; position: relative; background: var(--bg); overflow: hidden; }
+        
+        #empty-state { flex-grow: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #64748b; }
+        #empty-state h3 { margin: 0; font-size: 1.2rem; font-weight: normal; }
+        
+        #tabs-view { display: none; flex-direction: column; height: 100%; }
+        
+        .tabs-toolbar { display: flex; background: #0f172a; border-bottom: 1px solid #334155; overflow-x: auto; scrollbar-width: none; }
+        .tabs-toolbar::-webkit-scrollbar { display: none; }
+        
+        .tab { padding: 0.75rem 1.25rem; background: #1e293b; color: #94a3b8; border: none; border-right: 1px solid #334155; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; white-space: nowrap; font-size: 0.9rem; }
+        .tab.active { background: var(--bg); color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .tab:hover:not(.active) { background: #2a3a52; }
+        
+        .tab-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0 0.25rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .tab-close:hover { color: var(--danger); }
+        
+        .iframe-container { flex-grow: 1; position: relative; background: #ffffff; }
+        .iframe-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; display: none; }
+        .iframe-container iframe.active { display: block; }
+        
+        .hidden { display: none !important; }
+        
+        /* Mobile Responsiveness - Vertical Split */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #sidebar { width: 100%; height: 40vh; border-right: none; border-bottom: 1px solid var(--card); }
+            #main-workspace { height: 60vh; }
+        }
     </style>
 </head>
 <body>
-    <h1>Architecture Catalog Portal</h1>
-    <div class="grid">
+    
+    <!-- Sidebar / Catalog List -->
+    <div id="sidebar">
+        <div id="sidebar-header">
+            <h1>Architecture Catalog</h1>
+            <input type="text" id="searchInput" class="search-bar" placeholder="Search architectures..." onkeyup="filterCards()">
+        </div>
+        <div id="catalog">
 EOF
 
 for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
     TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
-    echo "        <a href=\"./$WORKSPACE_NAME/index.html\" class=\"card\">" >> index.html
-    echo "            <h2>$TITLE</h2>" >> index.html
-    echo "            <p>View structural models and dynamic flows.</p>" >> index.html
-    echo "        </a>" >> index.html
+    TITLE_LOWER=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]')
+    
+    cat <<EOF >> index.html
+            <div class="card" data-title="${TITLE_LOWER}">
+                <h2>$TITLE</h2>
+                <p>Structural models & flows</p>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="openInTab('$WORKSPACE_NAME', '$TITLE')">Open Tab</button>
+                    <a href="./$WORKSPACE_NAME/index.html" target="_blank" class="btn btn-secondary">Direct Link ↗</a>
+                </div>
+            </div>
+EOF
 done
 
 cat <<EOF >> index.html
+        </div>
     </div>
+
+    <!-- Main Dynamic Workspace -->
+    <div id="main-workspace">
+        <div id="empty-state">
+            <h3>Select an architecture from the sidebar to open.</h3>
+        </div>
+        
+        <div id="tabs-view">
+            <div class="tabs-toolbar" id="tabs-toolbar"></div>
+            <div class="iframe-container" id="iframe-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Sidebar Search Filter
+        function filterCards() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                const title = card.getAttribute('data-title');
+                if (title.includes(query)) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+
+        // 2. Tab & Workspace Management
+        let openTabs = [];
+        let activeTab = null;
+
+        function openInTab(id, title) {
+            // Hide empty state, show tabs wrapper
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('tabs-view').style.display = 'flex';
+
+            // Only create if it isn't already open
+            if (!openTabs.includes(id)) {
+                openTabs.push(id);
+                
+                // Create Tab button
+                const tab = document.createElement('button');
+                tab.className = 'tab';
+                tab.id = 'tab-' + id;
+                tab.onclick = () => setActiveTab(id);
+                
+                const tabText = document.createElement('span');
+                tabText.textContent = title;
+                
+                const closeBtn = document.createElement('span');
+                closeBtn.className = 'tab-close';
+                closeBtn.innerHTML = '&times;';
+                closeBtn.onclick = (e) => closeTab(e, id);
+                
+                tab.appendChild(tabText);
+                tab.appendChild(closeBtn);
+                document.getElementById('tabs-toolbar').appendChild(tab);
+
+                // Create iframe
+                const iframe = document.createElement('iframe');
+                iframe.id = 'iframe-' + id;
+                iframe.src = './' + id + '/index.html';
+                document.getElementById('iframe-container').appendChild(iframe);
+            }
+            
+            // Switch focus to the tab
+            setActiveTab(id);
+        }
+
+        function setActiveTab(id) {
+            activeTab = id;
+            
+            // Remove active classes
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.iframe-container iframe').forEach(i => i.classList.remove('active'));
+            
+            // Apply active class to requested target
+            document.getElementById('tab-' + id).classList.add('active');
+            document.getElementById('iframe-' + id).classList.add('active');
+        }
+
+        function closeTab(event, id) {
+            event.stopPropagation(); // Prevent tab click trigger
+            
+            // Destroy nodes
+            document.getElementById('tab-' + id).remove();
+            document.getElementById('iframe-' + id).remove();
+            
+            openTabs = openTabs.filter(t => t !== id);
+            
+            if (openTabs.length === 0) {
+                // No tabs left -> show empty state
+                document.getElementById('empty-state').style.display = 'flex';
+                document.getElementById('tabs-view').style.display = 'none';
+                activeTab = null;
+            } else if (activeTab === id) {
+                // If closing active tab, shift focus to the last remaining tab
+                setActiveTab(openTabs[openTabs.length - 1]);
+            }
+        }
+    </script>
 </body>
 </html>
 EOF
