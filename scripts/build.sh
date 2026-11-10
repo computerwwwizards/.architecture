@@ -99,7 +99,7 @@ jq -n --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 
 for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
     HASH="${CURRENT_HASHES[$WORKSPACE_NAME]}"
-    jq --arg w "$WORKSPACE_NAME" --arg h "$HASH" '.workspaces[$w] =$h' manifest.json > tmp.json && mv tmp.json manifest.json
+    jq --arg w "$WORKSPACE_NAME" --arg h "$HASH" '.workspaces[$w] = $h' manifest.json > tmp.json && mv tmp.json manifest.json
 done
 
 echo "Generating index.html..."
@@ -125,4 +125,43 @@ cat <<EOF > index.html
     <div class="grid">
 EOF
 
-for WORKSPACE_NAME in
+for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
+    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
+    echo "        <a href=\"./$WORKSPACE_NAME/index.html\" class=\"card\">" >> index.html
+    echo "            <h2>$TITLE</h2>" >> index.html
+    echo "            <p>View structural models and dynamic flows.</p>" >> index.html
+    echo "        </a>" >> index.html
+done
+
+cat <<EOF >> index.html
+    </div>
+</body>
+</html>
+EOF
+
+echo "Portal generation complete."
+
+echo "--- Phase 3: LLM Context Generation (llms.txt) ---"
+# Initialize the root llms.txt index
+echo "# C4 Architecture Catalogs" > llms.txt
+echo "> This index provides raw Structurizr DSL boundaries formatted for LLM and Agent ingestion." >> llms.txt
+echo "" >> llms.txt
+
+# Absolute URL root for the agent crawler
+BASE_URL="https://computerwwwizards.github.io/.architecture"
+
+for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
+    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
+    MD_FILE="$WORKSPACE_NAME/llm-context.md"
+    
+    # 1. Create the markdown wrapper containing the raw DSL
+    echo "# $TITLE Architecture" > "$MD_FILE"
+    echo '```dsl' >> "$MD_FILE"
+    cat "../c4-catalogs/$WORKSPACE_NAME/workspace.dsl" >> "$MD_FILE"
+    echo '```' >> "$MD_FILE"
+    
+    # 2. Append the absolute URL anchor to the root llms.txt
+    echo "- [$TITLE Architecture DSL]($BASE_URL/$MD_FILE)" >> llms.txt
+done
+
+echo "LLM context generation complete."
