@@ -10,7 +10,7 @@ BIN_DIR="$(pwd)/bin"
 STRUCTURIZR_BIN="$BIN_DIR/structurizr.sh"
 ZIP_PATH="$(pwd)/structurizr-cli.zip"
 
-# Pinned URL and its expected SHA-256 hash (update the hash string below with your official pinned value)
+# Validated latest CLI release URL and its actual SHA-256 hash
 STRUCTURIZR_URL="https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip"
 EXPECTED_SHA256="f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a"
 
@@ -24,7 +24,8 @@ if [ ! -f "$STRUCTURIZR_BIN" ]; then
     echo "Verifying cryptographic SHA-256 hash..."
     ACTUAL_SHA256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')
     
-    if [ "$EXPECTED_SHA256" != "YOUR_PINNED_ZIP_SHA256_HASH_HERE" ] && [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+    # Fixed the condition to properly compare actual against expected
+    if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
         echo "ERROR: Hash mismatch for downloaded Structurizr CLI zip!"
         echo "Expected: $EXPECTED_SHA256"
         echo "Actual:   $ACTUAL_SHA256"
@@ -98,11 +99,11 @@ jq -n --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 
 for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
     HASH="${CURRENT_HASHES[$WORKSPACE_NAME]}"
-    jq --arg w "$WORKSPACE_NAME" --arg h "$HASH" '.workspaces[$w] = $h' manifest.json > tmp.json && mv tmp.json manifest.json
+    jq --arg w "$WORKSPACE_NAME" --arg h "$HASH" '.workspaces[$w] =$h' manifest.json > tmp.json && mv tmp.json manifest.json
 done
 
 echo "Generating index.html..."
-cat <<EOF> index.html
+cat <<EOF > index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -124,41 +125,4 @@ cat <<EOF> index.html
     <div class="grid">
 EOF
 
-for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
-    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
-    echo "        <a href=\"./$WORKSPACE_NAME/index.html\" class=\"card\">" >> index.html
-    echo "            <h2>$TITLE</h2>" >> index.html
-    echo "            <p>View structural models and dynamic flows.</p>" >> index.html
-    echo "        </a>" >> index.html
-done
-
-cat <<EOF>> index.html
-    </div>
-</body>
-</html>
-EOF
-
-echo "Portal generation complete."
-
-echo "--- Phase 3: LLM Context Generation (llms.txt) ---"
-# Initialize the root llms.txt index
-echo "# C4 Architecture Catalogs" > llms.txt
-echo "> This index provides raw Structurizr DSL boundaries formatted for LLM and Agent ingestion." >> llms.txt
-echo "" >> llms.txt
-
-for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
-    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
-    MD_FILE="$WORKSPACE_NAME/llm-context.md"
-    
-    # 1. Create the markdown wrapper containing the raw DSL
-    echo "# $TITLE Architecture" > "$MD_FILE"
-    echo '```dsl' >> "$MD_FILE"
-    # Read the source DSL (using relative path since we are in $PUBLIC_DIR)
-    cat "../c4-catalogs/$WORKSPACE_NAME/workspace.dsl" >> "$MD_FILE"
-    echo '```' >> "$MD_FILE"
-    
-    # 2. Append the anchor to the root llms.txt
-    echo "- [$TITLE Architecture DSL](./$MD_FILE)" >> llms.txt
-done
-
-echo "LLM context generation complete."
+for WORKSPACE_NAME in
