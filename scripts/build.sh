@@ -11,7 +11,7 @@ STRUCTURIZR_BIN="$BIN_DIR/structurizr.sh"
 ZIP_PATH="$(pwd)/structurizr-cli.zip"
 
 # Pinned URL and its expected SHA-256 hash (update the hash string below with your official pinned value)
-STRUCTURIZR_URL="https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip"
+STRUCTURIZR_URL="[https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip](https://github.com/structurizr/cli/releases/download/v2025.11.09/structurizr-cli.zip)"
 EXPECTED_SHA256="f5365a463fc44d539ed19bec00c48ba1e1ecda0ccfd1ba40d2e7472d264eb79a"
 
 if [ ! -f "$STRUCTURIZR_BIN" ]; then
@@ -102,7 +102,7 @@ for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
 done
 
 echo "Generating index.html..."
-cat <<EOF > index.html
+cat <<EOF> index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,10 +132,33 @@ for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
     echo "        </a>" >> index.html
 done
 
-cat <<EOF >> index.html
+cat <<EOF>> index.html
     </div>
 </body>
 </html>
 EOF
 
 echo "Portal generation complete."
+
+echo "--- Phase 3: LLM Context Generation (llms.txt) ---"
+# Initialize the root llms.txt index
+echo "# C4 Architecture Catalogs" > llms.txt
+echo "> This index provides raw Structurizr DSL boundaries formatted for LLM and Agent ingestion." >> llms.txt
+echo "" >> llms.txt
+
+for WORKSPACE_NAME in "${!CURRENT_HASHES[@]}"; do
+    TITLE=$(echo "$WORKSPACE_NAME" | tr '_' ' ')
+    MD_FILE="$WORKSPACE_NAME/llm-context.md"
+    
+    # 1. Create the markdown wrapper containing the raw DSL
+    echo "# $TITLE Architecture" > "$MD_FILE"
+    echo '```dsl' >> "$MD_FILE"
+    # Read the source DSL (using relative path since we are in $PUBLIC_DIR)
+    cat "../c4-catalogs/$WORKSPACE_NAME/workspace.dsl" >> "$MD_FILE"
+    echo '```' >> "$MD_FILE"
+    
+    # 2. Append the anchor to the root llms.txt
+    echo "- [$TITLE Architecture DSL](./$MD_FILE)" >> llms.txt
+done
+
+echo "LLM context generation complete."
